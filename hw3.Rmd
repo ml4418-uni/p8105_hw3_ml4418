@@ -1,0 +1,139 @@
+---
+title: "p8105_hw3_ml4418"
+author: "Mengyuan Li"
+date: "10/8/2019"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+# problem 1
+```{r}
+library(p8105.datasets)
+data("instacart")
+
+
+aisles = select(instacart, "aisle")
+aisles = unique(aisles)
+aisles_number = nrow(aisles)
+
+instacart %>%
+  group_by(aisle) %>%
+  summarise(number_of_order = n()) %>%
+  filter(number_of_order == max(number_of_order))
+instacart
+  
+plot = instacart %>%
+  group_by(aisle) %>%
+  summarise(number_of_order = n()) %>%
+  filter(number_of_order >= 10000) %>%
+  ggplot(aes(x = number_of_order , y = aisle, color = aisle)) + 
+  geom_point() +
+  labs(title = "Number of Orders plot",
+    x = "Aisle Category",
+    y = "Number of Orders")
+
+
+table_order_number = instacart %>%
+  filter(aisle == c( "baking ingredients", "dog food care", "packaged vegetables fruits")) %>%
+  group_by(aisle,product_name) %>%
+  summarise(total_number = n())
+table_1 = filter(table_order_number, aisle == "baking ingredients") %>%
+  mutate(total_number = sort(total_number))
+table_2 = filter(table_order_number, aisle == "dog food care") %>%
+  mutate(total_number = sort(total_number))
+table_1 = filter(table_order_number, aisle == "packaged vegatables fruits") %>%
+  mutate(total_number = sort(total_number))
+
+
+
+apple = filter(instacart, product_name == "Pink Lady Apples")
+ice_cream = filter(instacart, product_name == "Coffee Ice Cream")
+combine = bind_rows(apple, ice_cream) %>%
+  select(order_dow, order_hour_of_day, product_name) %>%
+  mutate(order_dow = factor(order_dow, labels = c("Sunay", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))) %>%
+  group_by(product_name, order_dow) %>%
+  summarise(mean_hour = mean(order_hour_of_day)) %>%
+  pivot_wider(names_from = order_dow,
+              values_from = mean_hour) 
+combine
+```
+
+The size of dataset is `r nrow(instacart)` * `r ncol(instacart)`. The dataset follows primitive structure, which means there are many parallel subfactors that reasearchers want to consider. Some varaibles are very important, which can be considered as key variables. For example, "reorder" is a key varaible because it reflects the popularity of a certain product. Also, "day_since_prior_order" is another key variable because it refelcts how often customers purchase a certain product. Here is an example of observations. For the first obeservation whith order ID of 1 in the dateset, he purchased a product with ID 11109 for 4 times. This is the second product he selected and added into cart. He reordered this product pretty often. 
+
+Answers: There are 134 aisles. Fresh vegetables are the most items ordered from, and the number of orders is 150609.	
+
+# problem 2
+```{r}
+library(p8105.datasets)
+data("brfss_smart2010")
+library(ggplot2)
+
+brfss_smart2010 = janitor::clean_names(brfss_smart2010)
+brfss_tidy = filter(brfss_smart2010, 
+                    topic == "Overall Health", 
+                    response == c("Excellent", "Poor")) %>%
+  mutate(response = factor(response, levels = c("Poor","Excellent"), labels = c(0,1))) 
+
+brfss_2002 = filter(brfss_tidy, year == "2002") %>%
+  group_by(locationabbr) %>%
+  summarise(observing_number = n_distinct(locationdesc)) %>%
+  filter(observing_number >= 7) 
+  
+  
+  brfss_2010 = filter(brfss_tidy, year == "2010") %>%
+    group_by(locationabbr) %>%
+    summarise(observing_number = n_distinct(locationdesc)) %>%
+    filter(observing_number >= 7) 
+
+  brfss_excellent = filter(brfss_tidy, response == 1) %>%
+    group_by(locationabbr, year) %>%
+    summarise(average = sum(data_value)/n()) 
+  
+plot_1 = ggplot(brfss_excellent, aes(year, average , color = locationabbr)) +
+  geom_line(aes(group = locationabbr))
+
+data_value = filter(brfss_tidy, year == c("2006","2010"), locationabbr == "NY") %>%
+  group_by(year) %>%
+  ggplot(aes(year, data_value)) + geom_point() + geom_line() + facet_grid(~year)
+
+data_value
+```
+Answers: In 2002, CT, FL, MA, NC, NJ, PA were observed at 7 or more locations. In 2010, CA, CO, FL, ID, MA, MD, NC, NE, NJ, NM, NY, OH, PA, SC, TX, UT, WA were observed at 7 or more locations. 
+
+# problem 3
+```{r}
+accel_data = read.csv("accel_data.csv")
+accel_data = janitor::clean_names(accel_data) 
+ 
+ 
+data_1 = filter(accel_data, day == c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")) %>%
+  mutate(weekday_weekend = "weekday")
+
+data_2 = filter(accel_data, day == c("Saturday", "Sunday")) %>%
+  mutate(weekday_weekend = "weekend")
+
+data = bind_rows(data_1, data_2)
+
+
+total_activity = mutate(data, total_activity = rowSums(data[4:1443])) %>%
+  select(week, day, total_activity)
+data_tidy = pivot_longer(data,
+                         cols = 4:1443,
+                         names_to = "activity",
+                         values_to = "number_of_activity",
+                         names_prefix = "activity_")
+new_data = data_tidy %>%
+  group_by(week,day_id) %>%
+  ggplot(aes(activity, number_of_activity, color = week)) + geom_point() +geom_line()
+new_data
+  
+  
+```
+There are `r nrow(accel_data)` observations. The variables include week, day, and activity counts for each minute of a 24-hour day starting at midnight. 
